@@ -80,7 +80,7 @@ Router command-line arguments. Unset optional flags are omitted.
 - --health-probe-bind-address=:8081
 - --cluster-domain={{ .Values.router.clusterDomain }}
 - --proxy-timeout={{ .Values.router.proxyTimeout }}
-- --upstream-max-retries={{ .Values.router.upstreamMaxRetries }}
+- --upstream-max-retries={{ .Values.router.upstreamMaxRetries | int64 }}
 - --cache-enabled={{ .Values.router.cacheEnabled }}
 {{- with .Values.router.cacheNamespace }}
 - --cache-namespace={{ . }}
@@ -96,7 +96,7 @@ Router command-line arguments. Unset optional flags are omitted.
 - --access-log={{ .Values.router.accessLog }}
 {{- end }}
 {{- if not (kindIs "invalid" .Values.router.maxRequestBodyBytes) }}
-- --max-request-body-bytes={{ .Values.router.maxRequestBodyBytes }}
+- --max-request-body-bytes={{ .Values.router.maxRequestBodyBytes | int64 }}
 {{- end }}
 {{- with .Values.router.pathRoutingPrefix }}
 - --path-routing-prefix={{ . }}
