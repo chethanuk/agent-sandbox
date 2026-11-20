@@ -1066,6 +1066,8 @@ func TestUnexpectedFSErrorCodes(t *testing.T) {
 	}{
 		{"disk full", &os.PathError{Op: "write", Path: "/workspace/.sandboxd-tmp-1", Err: syscall.ENOSPC}, http.StatusInsufficientStorage, "RESOURCE_EXHAUSTED"},
 		{"quota exceeded", fmt.Errorf("failed to write file contents: %w", &os.PathError{Op: "write", Path: "x", Err: syscall.EDQUOT}), http.StatusInsufficientStorage, "RESOURCE_EXHAUSTED"},
+		{"read-only filesystem", &os.PathError{Op: "open", Path: "/workspace/.sandboxd-tmp-1", Err: syscall.EROFS}, http.StatusForbidden, "PERMISSION_DENIED"},
+		{"read-only filesystem wrapped", fmt.Errorf("failed to create temp file: %w", &os.PathError{Op: "open", Path: "/workspace/.sandboxd-tmp-1", Err: syscall.EROFS}), http.StatusForbidden, "PERMISSION_DENIED"},
 		{"anything else", &os.PathError{Op: "read", Path: "x", Err: syscall.EIO}, http.StatusInternalServerError, "INTERNAL"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1077,16 +1079,25 @@ func TestUnexpectedFSErrorCodes(t *testing.T) {
 	}
 
 	// extract=tar and directory creation fall back to the same mapping, so a
-	// full disk during an extraction is a 507 too.
-	full := fmt.Errorf("writing archive entry: %w", &os.PathError{Op: "write", Path: "x", Err: syscall.ENOSPC})
-	for name, write := range map[string]func(http.ResponseWriter, error){
-		"extract":   s.writeExtractError,
-		"directory": s.writeMakeDirectoryError,
+	// full disk or a read-only mount during an extraction gets the same code.
+	for _, fallback := range []struct {
+		errno  syscall.Errno
+		status int
+		code   string
+	}{
+		{syscall.ENOSPC, http.StatusInsufficientStorage, "RESOURCE_EXHAUSTED"},
+		{syscall.EROFS, http.StatusForbidden, "PERMISSION_DENIED"},
 	} {
-		rec := httptest.NewRecorder()
-		write(rec, full)
-		require.Equal(t, http.StatusInsufficientStorage, rec.Code, name)
-		require.Equal(t, "RESOURCE_EXHAUSTED", decodeError(t, rec).Code, name)
+		err := fmt.Errorf("writing archive entry: %w", &os.PathError{Op: "write", Path: "x", Err: fallback.errno})
+		for name, write := range map[string]func(http.ResponseWriter, error){
+			"extract":   s.writeExtractError,
+			"directory": s.writeMakeDirectoryError,
+		} {
+			rec := httptest.NewRecorder()
+			write(rec, err)
+			require.Equal(t, fallback.status, rec.Code, name, fallback.errno)
+			require.Equal(t, fallback.code, decodeError(t, rec).Code, name, fallback.errno)
+		}
 	}
 }
 
