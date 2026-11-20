@@ -536,7 +536,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     Forbidden:
-      description: Path escapes sandbox root or permission denied
+      description: Path escapes sandbox root, permission denied, or path is on a read-only mount
       content:
         application/json:
           schema:

@@ -151,11 +151,14 @@ func (s *RESTServer) writeError(w http.ResponseWriter, httpCode int, code, messa
 }
 
 // writeUnexpectedFSError answers a filesystem error that no more specific
-// case matched. A full disk or exhausted quota, and a path or path component
-// longer than the filesystem allows, are the caller's to act on, so they get
-// their own codes; anything else is an internal error.
+// case matched. A full disk or exhausted quota, a path or path component
+// longer than the filesystem allows, and a write to a read-only mount are the
+// caller's to act on, so they get their own codes; anything else is an
+// internal error.
 func (s *RESTServer) writeUnexpectedFSError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, syscall.EROFS):
+		s.writeError(w, http.StatusForbidden, "PERMISSION_DENIED", "path is on a read-only filesystem")
 	case errors.Is(err, syscall.ENOSPC), errors.Is(err, syscall.EDQUOT):
 		s.writeError(w, http.StatusInsufficientStorage, "RESOURCE_EXHAUSTED", "no space left in the sandbox filesystem")
 	case errors.Is(err, syscall.ENAMETOOLONG):

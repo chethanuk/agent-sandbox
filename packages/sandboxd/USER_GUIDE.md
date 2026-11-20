@@ -220,7 +220,10 @@ default) via symlink-aware sanitization; traversal attempts return
 `403 {"code":"PERMISSION_DENIED"}`.
 A write that finds the sandbox filesystem full (or its quota exhausted)
 returns `507 {"code":"RESOURCE_EXHAUSTED"}`, and a path or path component
-longer than the filesystem allows returns `400 {"code":"INVALID_ARGUMENT"}`; other
+longer than the filesystem allows returns `400 {"code":"INVALID_ARGUMENT"}`. A
+write, delete, move or copy under a read-only mount, such as a ConfigMap or
+Secret volume, returns
+`403 {"code":"PERMISSION_DENIED"}`. Other
 unexpected filesystem errors return `500 {"code":"INTERNAL"}`.
 
 For example, `GET /v1/files/notes.txt?stat=true` returns:
